@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from pydantic import BaseModel
@@ -45,6 +46,20 @@ load_dotenv()
 ACCESS_TOKEN_EXPIRE_MINUTES = 35
 # Initialize FastAPI app
 app = FastAPI()
+origins = [
+    "http://localhost:3000",  # React or frontend running on localhost
+    "http://example.com",     # Your production domain
+    "*"
+]
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,          # Allow specific origins
+    allow_credentials=True,         # Allow cookies and headers with credentials
+    allow_methods=["*"],            # Allow all HTTP methods
+    allow_headers=["*"],            # Allow all headers
+)
 
 # Pydantic models for request validation
 class TextRequest(BaseModel):
@@ -266,9 +281,10 @@ async def generate(
         raise HTTPException(status_code=500, detail=str(e))
 
 # Auth Endpoints
-@app.post("/signup")
+@app.post("/api/signup")
 def signup(user: UserCreate, db: Session = Depends(get_db)):
     """User registration endpoint"""
+    logger.info(f"Signup data received: {user.dict()}")
     # Check if user already exists
     existing_user = db.query(User).filter(
         (User.username == user.username) | (User.email == user.email)
@@ -292,7 +308,7 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     
-    return {"message": "User created successfully"}
+    return {"status": "success", "message": "User created successfully"}
 
 @app.post("/api/login", response_model=Token)
 def login(
@@ -302,7 +318,8 @@ def login(
 ):
     """User login endpoint with JWT token in cookie"""
     user = authenticate_user(db, form_data.username, form_data.password)
-    
+    logger.info("hi")
+    logger.info(user)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -326,6 +343,27 @@ def login(
     )
     
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/api/me")
+async def get_current_user_details(
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Fetch user details from the current token.
+    Requires a valid access_token passed in the Authorization header.
+    """
+    try:
+        user_details = {
+            "email": current_user.email,
+            "username": current_user.username
+        }
+        return user_details
+    except AttributeError as e:
+        logger.error(f"Error retrieving user data: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User data incomplete or unavailable"
+        )
 
 @app.post("/api/logout")
 def logout(response: Response):
