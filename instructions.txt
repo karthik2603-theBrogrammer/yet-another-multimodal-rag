@@ -1,0 +1,1 @@
+install tesseract as a linux dependancy, not a classic python dependancy.
