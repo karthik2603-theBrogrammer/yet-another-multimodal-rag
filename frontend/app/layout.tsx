@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "./authProvider";
+import { ConversationProvider } from "./ConversationContext";
+import { Toaster } from "@/components/ui/sonner";
 import localFont from "next/font/local";
+import { Header } from '@/components/header';
+import Sidebar from '@/components/sidebar';
 import "./globals.css";
 
 const geistSans = localFont({
@@ -27,11 +31,22 @@ export default function RootLayout({
   return (
     <html lang="en">
       <AuthProvider>
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        >
-          {children}
-        </body>
+        <Toaster />
+        <ConversationProvider>
+          <body
+
+            className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col h-screen`}
+          >
+            <Toaster position="top-right" />
+            <Header />
+            <div className="flex flex-1 overflow-y-hidden">
+              <Sidebar />
+              <main className="w-full h-full overflow-y-hidden">
+                {children}
+              </main>
+            </div>
+          </body>
+        </ConversationProvider>
       </AuthProvider>
     </html>
   );
